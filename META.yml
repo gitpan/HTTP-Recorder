@@ -1,14 +1,30 @@
-#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
-name:         HTTP-Recorder
-version:      0.05
-version_from: lib/HTTP/Recorder.pm
-installdirs:  site
+--- #YAML:1.0
+name:               HTTP-Recorder
+version:            0.06_01
+abstract:           ~
+author:
+    - Shmuel Fomberg (semuelf@cpan.org)
+license:            unknown
+distribution_type:  module
+configure_requires:
+    ExtUtils::MakeMaker:  0
+build_requires:
+    ExtUtils::MakeMaker:  0
 requires:
-    LWP::UserAgent:                0
-    HTTP::Request::Params:         0
-    URI::QueryParam:               0
-    URI::Escape:                   0
-    HTML::TokeParser:              0
-
-distribution_type: module
-generated_by: ExtUtils::MakeMaker version 6.12
+    Getopt::Long:         0
+    HTML::Parser:         0
+    HTML::TokeParser:     0
+    HTTP::Proxy:          0
+    HTTP::Request::Params:  0
+    LWP::UserAgent:       0
+    Pod::Usage:           0
+    URI::Escape:          0
+    URI::QueryParam:      0
+no_index:
+    directory:
+        - t
+        - inc
+generated_by:       ExtUtils::MakeMaker version 6.56
+meta-spec:
+    url:      http://module-build.sourceforge.net/META-spec-v1.4.html
+    version:  1.4

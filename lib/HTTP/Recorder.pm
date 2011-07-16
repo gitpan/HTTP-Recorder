@@ -1,14 +1,10 @@
 package HTTP::Recorder;
 
-our $VERSION = "0.05";
+our $VERSION = "0.06_01";
 
 =head1 NAME
 
 HTTP::Recorder - record interaction with websites
-
-=head1 VERSION
-
-Version 0.05
 
 =head1 SYNOPSIS
 
@@ -19,7 +15,22 @@ responses so that additional requests can be recorded.
 
 =head3 The Proxy Script
 
-Set it up like this:
+For quick start, run the httprecorder script
+
+    httprecorder
+
+This will open a local proxy on port 8080, and will dump the recorded traffic
+to a file named http_traffic in the current directory. use the -help parameter
+for usage info
+
+Start the proxy script, then change the settings in your web browser
+so that it will use this proxy for web requests.  For more information
+about proxy settings and the default port, see L<HTTP::Proxy>.
+
+The script will be recorded in the specified file, and can be viewed
+and modified via the control panel.
+
+For better control, use this example:
 
     #!/usr/bin/perl
 
@@ -39,15 +50,6 @@ Set it up like this:
 
     # start the proxy
     $proxy->start();
-
-    1;
-
-Start the proxy script, then change the settings in your web browser
-so that it will use this proxy for web requests.  For more information
-about proxy settings and the default port, see L<HTTP::Proxy>.
-
-The script will be recorded in the specified file, and can be viewed
-and modified via the control panel.
 
 =head3 Start Recording
 
@@ -341,8 +343,14 @@ sub unmodify {
 
     return $content unless $content;
 
-    # get rid of the arguments we added
+	# get rid of the arguments we added
     my $prefix = $self->{prefix};
+
+	# workaround: the content can be a simple string
+	if (not ref $content) {
+		$content =~ s/(?:^|(?<=\&))\Q$prefix\E-[^=]+=[^\&]*(\&|$)//g;
+		return $content;
+	}
 
     for my $key ($content->query_param) {
 	if ($key =~ /^$prefix-/) {
@@ -387,115 +395,112 @@ sub modify_response {
     my $in_head = 0;
     my $basehref;
     while (my $token = $p->get_token()) {
-	if (@$token[0] eq 'S') {
-	    my $tagname = @$token[1];
-	    my $attrs = @$token[2];
-	    my $oldaction;
-	    my $text;
+        if (@$token[0] eq 'S') {
+            my $tagname = @$token[1];
+            my $attrs = @$token[2];
+            my $oldaction;
+            my $text;
 
-	    if ($tagname eq 'head') {
-		$in_head = 1;
-	    } elsif ($in_head && $tagname eq 'base') {
-		$basehref = new URI($attrs->{'base'});
-	    } elsif ($tagname eq 'html') {
-		# add the javascript to update the script
-		$newcontent .= $self->script_update();
-	    } elsif (($tagname eq 'a' || $tagname eq 'link') && 
-		     $attrs->{'href'}) {
-		my $t = $p->get_token();
-		if (@$t[0] eq 'T') {
-		    $text = @$t[1];
-		} else {
-		    undef $text;
-		}
-		$p->unget_token($t);
+            if ($tagname eq 'head') {
+                $in_head = 1;
+            } elsif ($in_head && $tagname eq 'base') {
+                $basehref = new URI($attrs->{'base'});
+            } elsif (($tagname eq 'a' || $tagname eq 'link') && $attrs->{'href'}) {
+                my $t = $p->get_token();
+                if (@$t[0] eq 'T') {
+                    $text = @$t[1];
+                } else {
+                    undef $text;
+                }
+                $p->unget_token($t);
 
-		# up the counter for links with the same text
-		my $index;
-		if (defined $text) {
-		    $links{$text} = 0 if !(exists $links{$text});
-		    $links{$text}++;
-		    $index = $links{$text};
-		} else {
-		    $index = $linknumber;
-		}
-		if ($attrs->{'href'} =~ m/^javascript:/i) {
-		    $js_href = 1;
-		} else {
-		    if ($tagname eq 'a') {
-			$attrs->{'href'} = 
-			    $self->rewrite_href($attrs->{'href'}, 
-						$text, 
-						$index,
-						$response->base);
-		    } elsif ($tagname eq 'link') {
-			$attrs->{'href'} = 
-			    $self->rewrite_linkhref($attrs->{'href'}, 
-						    $response->base);
-		    }
-		}
-		$linknumber++;
-	    } elsif ($tagname eq 'form') {
-		$formcount++;
-		$formnumber++;
-	    }
+                # up the counter for links with the same text
+                my $index;
+                if (defined $text) {
+                    $links{$text} = 0 if !(exists $links{$text});
+                    $links{$text}++;
+                    $index = $links{$text};
+                } else {
+                    $index = $linknumber;
+                }
+                if ($attrs->{'href'} =~ m/^javascript:/i) {
+                    $js_href = 1;
+                } else {
+                    if ($tagname eq 'a') {
+                    $attrs->{'href'} = 
+                        $self->rewrite_href($attrs->{'href'}, 
+                                $text, 
+                                $index,
+                                $response->base);
+                    } elsif ($tagname eq 'link') {
+                    $attrs->{'href'} = 
+                        $self->rewrite_linkhref($attrs->{'href'}, 
+                                    $response->base);
+                    }
+                }
+                $linknumber++;
+            } elsif ($tagname eq 'form') {
+                $formcount++;
+                $formnumber++;
+            }
 
-	    # put the hidden field before the real field
-	    # so that it won't be inside
-	    if (!$js_href && 
-		$tagname ne 'form' && ($formcount == 1)) {
-		my ($formfield, $fieldprefix, $fieldtype, $fieldname);
-		$fieldprefix = "$self->{prefix}-form" . $formnumber;
-		$fieldtype = lc($attrs->{type}) || 'unknown';
-		if ($attrs->{name}) {
-		    $fieldname = $attrs->{name};
-		    $formfield = ($fieldprefix . '-' . 
-				  $fieldtype . '-' . $fieldname);
-		    $newcontent .= "<input type=\"hidden\" name=\"$formfield\" value=1>\n";
-		}
-	    }
+            # put the hidden field before the real field
+            # so that it won't be inside
+            if (!$js_href && $tagname ne 'form' && ($formcount == 1)) {
+                my ($formfield, $fieldprefix, $fieldtype, $fieldname);
+                $fieldprefix = "$self->{prefix}-form" . $formnumber;
+                $fieldtype = lc($attrs->{type}) || 'unknown';
+                if ($attrs->{name}) {
+                    $fieldname = $attrs->{name};
+                    $formfield = ($fieldprefix . '-' . 
+                          $fieldtype . '-' . $fieldname);
+                    $newcontent .= "<input type=\"hidden\" name=\"$formfield\" value=1>\n";
+                }
+            }
 
-	    $newcontent .= ("<".$tagname);
+            $newcontent .= ("<".$tagname);
 
-	    # keep the attributes in their original order
-	    my $attrlist = @$token[3];
-	    foreach my $attr (@$attrlist) {
-		# only rewrite if 
-		# - it's not part of a javascript link
-		# - it's not a hidden field
-		$newcontent .= (" ".$attr."=\"".$attrs->{$attr}."\"");
-	    }
-	    $newcontent .= (">\n");
-	    if ($tagname eq 'form') {
-		if ($formcount == 1) {
-		    $newcontent .= $self->rewrite_form_content($attrs->{name} || "",
-							       $formnumber,
-							       $response->base);
-		}
-	    }
-	} elsif (@$token[0] eq 'E') {
-	    my $tagname = @$token[1];
-	    if ($tagname eq 'head') {
-		if (!$basehref) {
-		    $basehref = $response->base;
-		    $basehref->scheme('http') if $basehref->scheme eq 'https';
-		    $newcontent .= "<base href=\"" . $basehref . "\">\n";
-		}
-		$basehref = "";
-		$in_head = 0;
-	    }
-	    $newcontent .= ("</");
-	    $newcontent .= ($tagname.">\n");
-	    if ($tagname eq 'form') {
-		$formcount--;
-	    } elsif ($tagname eq 'a' || $tagname eq 'link') {
-		$js_href = 0;
-	    }
-	} elsif (@$token[0] eq 'PI') {
-	    $newcontent .= (@$token[2]);
-	} else {
-	    $newcontent .= (@$token[1]);
-	}
+            # keep the attributes in their original order
+            my $attrlist = @$token[3];
+            foreach my $attr (@$attrlist) {
+                # only rewrite if 
+                # - it's not part of a javascript link
+                # - it's not a hidden field
+                $newcontent .= (" ".$attr."=\"".$attrs->{$attr}."\"");
+            }
+            $newcontent .= (">\n");
+            if ($tagname eq 'head') {
+                # add the javascript to update the script, right after the head opening tag
+                $newcontent .= $self->script_update();
+            }
+            if ($tagname eq 'form') {
+                if ($formcount == 1) {
+                    $newcontent .= $self->rewrite_form_content($attrs->{name} || "", $formnumber, $response->base);
+                }
+            }
+        } elsif (@$token[0] eq 'E') {
+            my $tagname = @$token[1];
+            if ($tagname eq 'head') {
+                if (!$basehref) {
+                    $basehref = $response->base;
+                    $basehref->scheme('http') if $basehref->scheme eq 'https';
+                    $newcontent .= "<base href=\"" . $basehref . "\">\n";
+                }
+                $basehref = "";
+                $in_head = 0;
+            }
+            $newcontent .= ("</");
+            $newcontent .= ($tagname.">\n");
+            if ($tagname eq 'form') {
+                $formcount--;
+            } elsif ($tagname eq 'a' || $tagname eq 'link') {
+                $js_href = 0;
+            }
+        } elsif (@$token[0] eq 'PI') {
+            $newcontent .= (@$token[2]);
+        } else {
+            $newcontent .= (@$token[1]);
+        }
     }
 
     $response->content($newcontent);
@@ -730,23 +735,11 @@ be sure to include a (preferably short and simple) HTML page that
 demonstrates the problem, and a clear explanation of a) what it does
 that it shouldn't, and b) what it should do instead.
 
-=head1 More information
-
-You can read more about L<HTTP::Recorder>, including browsing the
-current source tree, at http://www.bitmistress.org/.
-
-There's a mailing list for users and developers of HTTP::Recorder.
-You can subscribe at
-http://lists.fsck.com/mailman/listinfo/http-recorder, or by sending
-email to http-recorder-request@lists.fsck.com with the subject
-"subscribe".
-
-Mailing list archives can be found at
-http://lists.fsck.com/pipermail/http-recorder.
-
 =head1 Author
 
 Copyright 2003-2005 by Linda Julien <leira@cpan.org>
+
+Maintained by Shmuel Fomberg <semuelf@cpan.org>
 
 Released under the GNU Public License.
 

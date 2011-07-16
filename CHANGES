@@ -1,6 +1,16 @@
 Revision history for HTTP::Recorder
 -----------------------------------
 
+0.06_01
+	New maintanner
+	added a script httprecorder.pl for simple recordering
+	Added HTTP::Proxy dependacy to Makefile.PL
+	Added patch by SREZIC for encoding follow_link commands bugid:8243
+	Added patch by Marek.Rouchal bugid:15998 fixing the unmodify sub
+		that sometimes gets a string instead of an object
+	Added patch by david to prevent susbsitute on undef value, bugid:36841
+    Moved the injected JS inside the head tag, bugid:48574
+
 0.05 17 August 2005
    Fixed a bug where link text wasn't being un-escaped before being
    logged.
