@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               HTTP-Recorder
-version:            0.06_01
+version:            0.06
 abstract:           ~
 author:
     - Shmuel Fomberg (semuelf@cpan.org)

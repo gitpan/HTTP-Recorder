@@ -1,7 +1,7 @@
 Revision history for HTTP::Recorder
 -----------------------------------
 
-0.06_01
+0.06
 	New maintanner
 	added a script httprecorder.pl for simple recordering
 	Added HTTP::Proxy dependacy to Makefile.PL
