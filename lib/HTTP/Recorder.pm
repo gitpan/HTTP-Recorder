@@ -1,12 +1,25 @@
 package HTTP::Recorder;
 
-our $VERSION = "0.06";
+our $VERSION = "0.07";
 
 =head1 NAME
 
 HTTP::Recorder - record interaction with websites
 
 =head1 SYNOPSIS
+
+=head2 This module is deprecated
+
+It works by tagging links in a page, and then when a link is clicked
+looking on the submitted tag to see which link was clicked
+
+It can not handle Javascript-created links or JS manipulation of the page
+so it works only for fairly static websites
+
+For better options check out Selenium
+
+Patchs are welcome, and I'll fix bugs as much as I can, but please don't 
+expect me to implement new features
 
 =head2 Using HTTP::Recorder as a Web Proxy
 
@@ -449,7 +462,7 @@ sub modify_response {
             if (!$js_href && $tagname ne 'form' && ($formcount == 1)) {
                 my ($formfield, $fieldprefix, $fieldtype, $fieldname);
                 $fieldprefix = "$self->{prefix}-form" . $formnumber;
-                $fieldtype = lc($attrs->{type}) || 'unknown';
+                $fieldtype = lc($attrs->{type} || 'unknown');
                 if ($attrs->{name}) {
                     $fieldname = $attrs->{name};
                     $formfield = ($fieldprefix . '-' . 
